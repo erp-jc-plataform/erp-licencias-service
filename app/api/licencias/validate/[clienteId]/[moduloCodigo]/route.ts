@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { LicenciaService } from '@/services/licencia.service'
-import { handleError } from '@/lib/errors'
+import { handleError, AppError } from '@/lib/errors'
+import { validateInternalServiceToken } from '@/lib/auth'
 
 /**
  * @swagger
  * /api/licencias/validate/{clienteId}/{moduloCodigo}:
  *   get:
- *     summary: Validar licencia de módulo
- *     description: Verificar si un cliente tiene licencia activa para un módulo específico
+ *     summary: Validar licencia de módulo (uso interno)
+ *     description: Endpoint llamado por el API Gateway para validar acceso a módulos. Requiere token de servicio interno.
  *     tags: [Licencias]
  *     parameters:
  *       - in: path
@@ -22,19 +23,28 @@ import { handleError } from '@/lib/errors'
  *         schema:
  *           type: string
  *         description: Código del módulo (ej. AUTH, CLIENTES, VENTAS)
+ *       - in: header
+ *         name: X-Internal-Service
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Token de servicio interno
  *     responses:
  *       200:
  *         description: Licencia válida
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ValidacionLicencia'
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ValidacionLicencia'
+ *                 - type: object
+ *                   properties:
+ *                     clienteId:
+ *                       type: integer
+ *                     moduloCodigo:
+ *                       type: string
  *       403:
- *         description: Módulo no activo
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *         description: Módulo no activo o no autorizado
  *       400:
  *         description: Parámetros inválidos
  */
@@ -43,10 +53,15 @@ export async function GET(
   { params }: { params: { clienteId: string; moduloCodigo: string } }
 ) {
   try {
-    const clienteId = parseInt(params.clienteId)
+    // Validar que la llamada viene de un servicio interno (Gateway)
+    if (!validateInternalServiceToken(request)) {
+      throw new AppError('No autorizado - Endpoint de uso interno', 403)
+    }
+    
+    const clienteId = Number.parseInt(params.clienteId)
     const moduloCodigo = params.moduloCodigo.toUpperCase()
 
-    if (isNaN(clienteId)) {
+    if (Number.isNaN(clienteId)) {
       return NextResponse.json(
         { error: 'ID de cliente inválido' },
         { status: 400 }
@@ -57,12 +72,22 @@ export async function GET(
 
     if (!resultado.valida) {
       return NextResponse.json(
-        { error: 'Módulo no activo para este cliente', valida: false },
+        { 
+          error: 'Módulo no activo para este cliente',
+          valida: false,
+          clienteId,
+          moduloCodigo
+        },
         { status: 403 }
       )
     }
 
-    return NextResponse.json(resultado)
+    return NextResponse.json({
+      valida: true,
+      clienteId,
+      moduloCodigo,
+      ...resultado.licencia
+    })
   } catch (error) {
     return handleError(error)
   }

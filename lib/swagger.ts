@@ -24,6 +24,11 @@ export const getApiDocs = async () => {
           description: 'Servidor de producción',
         },
       ],
+      security: [
+        {
+          BearerAuth: [],
+        },
+      ],
       tags: [
         {
           name: 'Health',
@@ -43,6 +48,14 @@ export const getApiDocs = async () => {
         },
       ],
       components: {
+        securitySchemes: {
+          BearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+            description: 'JWT token obtenido del microservicio Business-Security (Auth)',
+          },
+        },
         schemas: {
           Cliente: {
             type: 'object',

@@ -105,6 +105,45 @@ npm run prisma:studio
 - `maxUsuarios`: Usuarios concurrentes permitidos
 - `activa`: Estado de la licencia
 
+## 🔐 Autenticación
+
+Este microservicio **NO tiene login propio**. Utiliza JWT del microservicio Business-Security.
+
+### Flujo de autenticación:
+
+1. **Cliente hace login en Auth Service:**
+```bash
+POST http://localhost:8000/api/auth/login
+{
+  "usuario": "admin",
+  "contrasenia": "password123"
+}
+```
+
+2. **Auth Service responde con JWT:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer"
+}
+```
+
+3. **Cliente usa token para acceder a Licensing:**
+```bash
+GET http://localhost:3001/api/licencias/active-modules/1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+### Endpoints protegidos:
+- Todos los endpoints requieren header `Authorization: Bearer <token>`
+- Endpoint `/api/licencias/validate` requiere header adicional `X-Internal-Service` (uso del Gateway)
+- Endpoints de administración requieren `perfil_id: 1` en el JWT
+
+### Endpoints públicos (no requieren auth):
+- `GET /api/health`
+- `GET /api/swagger`
+- `GET /api-docs`
+
 ## 🔐 Módulos Disponibles
 
 ### Módulos Base (Incluidos)
