@@ -1,0 +1,98 @@
+// Prisma schema para Business-Licensing
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MODELO: CLIENTES
+// ============================================
+model Cliente {
+  id           Int      @id @default(autoincrement()) @map("cliente_id")
+  razonSocial  String   @map("razon_social") @db.VarChar(255)
+  ruc          String?  @unique @db.VarChar(50)
+  email        String?  @db.VarChar(255)
+  telefono     String?  @db.VarChar(50)
+  direccion    String?  @db.VarChar(500)
+  estadoId     Int      @default(1) @map("estado_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  licencias    Licencia[]
+
+  @@map("clientes")
+}
+
+// ============================================
+// MODELO: MÓDULOS
+// ============================================
+model Modulo {
+  id           Int      @id @default(autoincrement()) @map("modulo_id")
+  codigo       String   @unique @db.VarChar(50)
+  nombre       String   @db.VarChar(255)
+  descripcion  String?  @db.VarChar(500)
+  precioBase   Decimal? @map("precio_base") @db.Decimal(10, 2)
+  esBase       Boolean  @default(false) @map("es_base")
+  icono        String?  @db.VarChar(100)
+  orden        Int      @default(0)
+  estadoId     Int      @default(1) @map("estado_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  licencias    Licencia[]
+
+  @@map("modulos")
+}
+
+// ============================================
+// MODELO: LICENCIAS
+// ============================================
+model Licencia {
+  id                Int       @id @default(autoincrement()) @map("licencia_id")
+  clienteId         Int       @map("cliente_id")
+  moduloId          Int       @map("modulo_id")
+  fechaActivacion   DateTime  @map("fecha_activacion")
+  fechaVencimiento  DateTime? @map("fecha_vencimiento")
+  maxUsuarios       Int       @default(1) @map("max_usuarios")
+  activa            Boolean   @default(true)
+  observaciones     String?   @db.Text
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Relaciones
+  cliente           Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  modulo            Modulo    @relation(fields: [moduloId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, moduloId])
+  @@index([clienteId])
+  @@index([moduloId])
+  @@index([activa])
+  @@map("cliente_licencias")
+}
+
+// ============================================
+// MODELO: PLANES (Opcional - para paquetes)
+// ============================================
+model Plan {
+  id          Int      @id @default(autoincrement()) @map("plan_id")
+  codigo      String   @unique @db.VarChar(50)
+  nombre      String   @db.VarChar(255)
+  descripcion String?  @db.Text
+  precio      Decimal  @db.Decimal(10, 2)
+  duracion    Int      @default(12) // meses
+  maxUsuarios Int      @default(5) @map("max_usuarios")
+  modulosIds  Int[]    @map("modulos_ids") // Array de IDs de módulos incluidos
+  destacado   Boolean  @default(false)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("planes")
+}
