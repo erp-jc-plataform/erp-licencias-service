@@ -1,228 +1,282 @@
-# Business Licensing - Microservicio
+﻿# Business Licensing
 
-Microservicio de gestión de licencias y módulos para Business ERP.
+Microservicio de gestion de **licencias y modulos** para Business ERP. Controla que clientes tienen acceso a que modulos del sistema y es consultado por el API Gateway antes de permitir el acceso a cada servicio. Desarrollado con Next.js 14 (App Router), Prisma ORM y PostgreSQL.
 
-## 🚀 Stack Tecnológico
+---
 
-- **Framework**: Next.js 14+ (App Router)
-- **Lenguaje**: TypeScript
-- **ORM**: Prisma
-- **Base de Datos**: PostgreSQL
-- **Validaciones**: Zod
-- **Puerto**: 3001
+## Lenguaje y Stack Tecnologico
 
-## 📦 Instalación
+| Capa | Tecnologia | Version |
+|------|-----------|---------|
+| Lenguaje | **TypeScript** | 5.x |
+| Framework | **Next.js** (App Router) | 14.0.4 |
+| Runtime | **Node.js** | >= 18 |
+| ORM | **Prisma** | 5.7.0 |
+| Validacion | **Zod** | 3.22.4 |
+| Documentacion API | **next-swagger-doc + swagger-ui-react** | 0.4.1 / 5.30.3 |
+| Base de datos | **PostgreSQL** | >= 13 |
+| Puerto | **3001** | - |
 
-```bash
-# Instalar dependencias
+---
+
+## Caracteristicas
+
+- **Gestion de clientes** — CRUD completo de clientes del ERP
+- **Gestion de modulos** — catalogo de modulos disponibles (CLIENTES, EMPLEADOS, VENTAS, etc.)
+- **Gestion de licencias** — asignacion de modulos a clientes con fecha de vencimiento y max. usuarios
+- **Validacion de acceso** — endpoint que el Gateway consulta para saber si un cliente tiene activo un modulo
+- **Modulos activos por cliente** — lista de modulos vigentes para un cliente
+- **Swagger UI** integrado en `/api-docs`
+- **Seed** de datos iniciales con `tsx`
+
+---
+
+## Estructura del Proyecto
+
+```
+Business-Licensing/
+├── app/
+│   ├── layout.tsx
+│   ├── page.tsx
+│   └── api/
+│       ├── clientes/
+│       │   ├── route.ts              # GET (listar) / POST (crear cliente)
+│       │   └── [id]/route.ts         # GET / PUT / DELETE por ID
+│       ├── licencias/
+│       │   ├── route.ts              # POST (crear licencia)
+│       │   ├── [id]/route.ts         # GET / PUT / DELETE por ID
+│       │   ├── cliente/route.ts      # GET licencias por cliente
+│       │   ├── validate/route.ts     # GET validar acceso modulo
+│       │   └── active-modules/route.ts # GET modulos activos del cliente
+│       ├── modulos/
+│       │   └── route.ts              # GET (listar modulos)
+│       ├── swagger/route.ts          # GET spec OpenAPI JSON
+│       └── health/route.ts           # GET health check
+├── lib/
+│   ├── auth.ts                       # Validacion JWT, isAdmin()
+│   ├── errors.ts                     # AppError, handleError
+│   └── validations.ts                # Schemas Zod
+├── services/
+│   └── licencia.service.ts           # Logica de negocio con Prisma
+├── prisma/
+│   ├── schema.prisma                 # Modelos: Cliente, Modulo, Licencia
+│   ├── migrations/                   # Migraciones de BD
+│   └── seed.ts                       # Datos iniciales
+├── middleware.ts                     # Auth middleware Next.js
+├── next.config.js
+├── package.json
+└── .env
+```
+
+---
+
+## Instalacion
+
+### Requisitos previos
+
+- Node.js >= 18
+- PostgreSQL >= 13
+- Base de datos `business_licensing` creada
+
+### Pasos
+
+```powershell
+# 1. Entrar al directorio
+cd C:\Proyectos\BusinessApp\Business-Licensing
+
+# 2. Instalar dependencias
 npm install
 
-# Configurar variables de entorno
-cp .env.example .env
-# Editar .env con tu configuración de PostgreSQL
+# 3. Configurar variables de entorno
+copy .env.example .env
+```
 
+### Variables de entorno (`.env`)
+
+```env
+# Base de datos PostgreSQL
+DATABASE_URL="postgresql://postgres:tu_password@localhost:5432/business_licensing"
+
+# Puerto
+API_PORT=3001
+NODE_ENV=development
+
+# Seguridad — debe coincidir con Business-Gateway y Business-Security
+API_SECRET_KEY="your-secret-key-change-in-production"
+INTERNAL_SERVICE_TOKEN="shared-secret-between-microservices-change-in-production"
+
+# URLs de otros microservicios
+AUTH_SERVICE_URL="http://localhost:8000"
+EMPLOYEES_SERVICE_URL="http://localhost:8002"
+
+# CORS
+ALLOWED_ORIGINS="http://localhost:4200,http://localhost:3000"
+```
+
+### Inicializar base de datos
+
+```powershell
 # Generar cliente Prisma
 npm run prisma:generate
 
-# Crear base de datos y ejecutar migraciones
+# Crear tablas con migraciones
 npm run prisma:migrate
 
-# Seed de datos iniciales
+# Poblar datos iniciales (modulos base)
 npm run prisma:seed
 ```
 
-## 🏃 Ejecutar
+---
 
-```bash
-# Modo desarrollo (puerto 3001)
+## Levantar el Microservicio
+
+### Desarrollo (hot-reload)
+
+```powershell
+cd C:\Proyectos\BusinessApp\Business-Licensing
 npm run dev
+```
 
-# Modo producción
+El servidor arranca en `http://localhost:3001`.
+
+### Produccion
+
+```powershell
 npm run build
 npm start
+```
 
-# Ver base de datos con Prisma Studio
+### Verificar que esta corriendo
+
+```powershell
+Invoke-RestMethod -Uri http://localhost:3001/api/health
+```
+
+---
+
+## URLs Disponibles
+
+| URL | Descripcion |
+|-----|-------------|
+| `http://localhost:3001/api/health` | Health check |
+| `http://localhost:3001/api-docs` | Swagger UI interactivo |
+| `http://localhost:3001/api/swagger` | Spec OpenAPI JSON |
+| `http://localhost:3001/api/clientes` | Endpoint de clientes |
+| `http://localhost:3001/api/licencias` | Endpoint de licencias |
+| `http://localhost:3001/api/modulos` | Catalogo de modulos |
+
+---
+
+## Endpoints de la API
+
+### Clientes (`/api/clientes`)
+
+| Metodo | Ruta | Auth | Descripcion |
+|--------|------|------|-------------|
+| GET | `/api/clientes` | JWT | Listar todos los clientes |
+| POST | `/api/clientes` | JWT Admin | Crear nuevo cliente |
+| GET | `/api/clientes/{id}` | JWT | Obtener cliente por ID |
+| PUT | `/api/clientes/{id}` | JWT Admin | Actualizar cliente |
+| DELETE | `/api/clientes/{id}` | JWT Admin | Eliminar cliente |
+
+### Licencias (`/api/licencias`)
+
+| Metodo | Ruta | Auth | Descripcion |
+|--------|------|------|-------------|
+| POST | `/api/licencias` | JWT Admin | Crear nueva licencia |
+| GET | `/api/licencias/{id}` | JWT | Obtener licencia por ID |
+| PUT | `/api/licencias/{id}` | JWT Admin | Actualizar licencia |
+| DELETE | `/api/licencias/{id}` | JWT Admin | Eliminar licencia |
+| GET | `/api/licencias/cliente` | JWT | Licencias del cliente autenticado |
+| GET | `/api/licencias/validate` | Internal | Validar si cliente tiene modulo activo |
+| GET | `/api/licencias/active-modules` | JWT | Modulos activos del cliente |
+
+### Modulos (`/api/modulos`)
+
+| Metodo | Ruta | Auth | Descripcion |
+|--------|------|------|-------------|
+| GET | `/api/modulos` | JWT | Listar todos los modulos disponibles |
+
+---
+
+## Modelo de Datos
+
+### Tabla `clientes`
+
+| Campo | Tipo | Descripcion |
+|-------|------|-------------|
+| `cliente_id` | Int (PK) | Identificador unico autoincremental |
+| `razon_social` | varchar(255) | Nombre o razon social del cliente |
+| `ruc` | varchar(50) | RUC/NIT unico del cliente |
+| `email` | varchar(255) | Correo de contacto |
+| `telefono` | varchar(50) | Telefono |
+| `estado_id` | Int | Estado (activo/inactivo) |
+
+### Tabla `modulos`
+
+| Campo | Tipo | Descripcion |
+|-------|------|-------------|
+| `modulo_id` | Int (PK) | Identificador unico |
+| `codigo` | varchar(50) | Codigo unico (CLIENTES, EMPLEADOS, VENTAS...) |
+| `nombre` | varchar(255) | Nombre descriptivo |
+| `precio_base` | Decimal | Precio mensual base |
+| `es_base` | Boolean | Si es un modulo incluido por defecto |
+
+### Tabla `cliente_licencias`
+
+| Campo | Tipo | Descripcion |
+|-------|------|-------------|
+| `licencia_id` | Int (PK) | Identificador unico |
+| `cliente_id` | Int (FK) | Referencia al cliente |
+| `modulo_id` | Int (FK) | Referencia al modulo |
+| `fecha_activacion` | DateTime | Cuando se activo la licencia |
+| `fecha_vencimiento` | DateTime? | Fecha de expiracion (null = sin vencimiento) |
+| `max_usuarios` | Int | Cantidad maxima de usuarios |
+| `activa` | Boolean | Si la licencia esta vigente |
+
+Restriccion: `(cliente_id, modulo_id)` es unico — un cliente solo puede tener una licencia por modulo.
+
+---
+
+## Flujo de Validacion (usado por el Gateway)
+
+```
+1. Frontend --> Gateway: GET /api/clientes (con JWT)
+2. Gateway: decodifica JWT, obtiene clienteId
+3. Gateway --> Licensing: GET /api/licencias/validate?clienteId=1&modulo=CLIENTES
+4. Licensing: consulta BD, verifica licencia activa y no vencida
+5. Licensing --> Gateway: { valid: true/false }
+6. Si valid=true: Gateway hace proxy al microservicio correspondiente
+7. Si valid=false: Gateway retorna 403 (modulo no licenciado)
+```
+
+---
+
+## Scripts npm
+
+| Comando | Descripcion |
+|---------|-------------|
+| `npm run dev` | Desarrollo con hot-reload (puerto 3001) |
+| `npm run build` | Compilar para produccion |
+| `npm start` | Iniciar servidor compilado |
+| `npm run prisma:generate` | Generar cliente Prisma |
+| `npm run prisma:migrate` | Aplicar migraciones |
+| `npm run prisma:studio` | Abrir Prisma Studio (UI visual de BD) |
+| `npm run prisma:seed` | Poblar datos iniciales |
+
+---
+
+## Prisma Studio
+
+Para explorar la base de datos visualmente:
+
+```powershell
 npm run prisma:studio
+# Abre http://localhost:5555
 ```
 
-## 📚 API Endpoints
+---
 
-### Licencias
+## Licencia
 
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| GET | `/api/licencias/validate/:clienteId/:moduloCodigo` | Validar si cliente tiene licencia activa |
-| GET | `/api/licencias/active-modules/:clienteId` | Obtener módulos activos |
-| GET | `/api/licencias/cliente/:clienteId` | Listar licencias de un cliente |
-| POST | `/api/licencias` | Crear nueva licencia |
-| PUT | `/api/licencias/:id` | Actualizar licencia |
-| PATCH | `/api/licencias/:id` | Activar/Desactivar licencia |
-| DELETE | `/api/licencias/:id` | Eliminar licencia |
-
-### Clientes
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| GET | `/api/clientes` | Listar todos los clientes |
-| GET | `/api/clientes/:id` | Obtener cliente por ID |
-| POST | `/api/clientes` | Crear nuevo cliente |
-| PUT | `/api/clientes/:id` | Actualizar cliente |
-| DELETE | `/api/clientes/:id` | Desactivar cliente |
-
-### Módulos
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| GET | `/api/modulos` | Listar módulos activos |
-| POST | `/api/modulos` | Crear nuevo módulo |
-
-### Health Check
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| GET | `/api/health` | Estado del servicio |
-
-## 🗄️ Modelos de Base de Datos
-
-### Cliente
-- `razonSocial`: Nombre/razón social
-- `ruc`: RUC único
-- `email`, `telefono`, `direccion`: Datos de contacto
-- `estadoId`: Estado (1=Activo, 2=Inactivo)
-
-### Modulo
-- `codigo`: Código único (AUTH, EMPLEADOS, CLIENTES, etc.)
-- `nombre`: Nombre descriptivo
-- `precioBase`: Precio base del módulo
-- `esBase`: Si es módulo obligatorio (incluido siempre)
-- `icono`: Icono para UI
-
-### Licencia
-- `clienteId`: Cliente propietario
-- `moduloId`: Módulo licenciado
-- `fechaActivacion`: Fecha de inicio
-- `fechaVencimiento`: Fecha fin (NULL = perpetua)
-- `maxUsuarios`: Usuarios concurrentes permitidos
-- `activa`: Estado de la licencia
-
-## 🔐 Autenticación
-
-Este microservicio **NO tiene login propio**. Utiliza JWT del microservicio Business-Security.
-
-### Flujo de autenticación:
-
-1. **Cliente hace login en Auth Service:**
-```bash
-POST http://localhost:8000/api/auth/login
-{
-  "usuario": "admin",
-  "contrasenia": "password123"
-}
-```
-
-2. **Auth Service responde con JWT:**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "bearer"
-}
-```
-
-3. **Cliente usa token para acceder a Licensing:**
-```bash
-GET http://localhost:3001/api/licencias/active-modules/1
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-### Endpoints protegidos:
-- Todos los endpoints requieren header `Authorization: Bearer <token>`
-- Endpoint `/api/licencias/validate` requiere header adicional `X-Internal-Service` (uso del Gateway)
-- Endpoints de administración requieren `perfil_id: 1` en el JWT
-
-### Endpoints públicos (no requieren auth):
-- `GET /api/health`
-- `GET /api/swagger`
-- `GET /api-docs`
-
-## 🔐 Módulos Disponibles
-
-### Módulos Base (Incluidos)
-- **AUTH**: Autenticación y Seguridad
-- **DASHBOARD**: Panel de control
-
-### Módulos Opcionales
-- **EMPLEADOS**: Gestión de empleados ($500)
-- **CLIENTES**: CRM y gestión comercial ($800)
-- **VENTAS**: Ventas y facturación ($1200)
-- **INVENTARIO**: Control de stock ($900)
-- **COMPRAS**: Gestión de compras ($700)
-- **CONTABILIDAD**: Contabilidad y finanzas ($1500)
-
-## 🔄 Integración con Otros Microservicios
-
-### Validar licencia desde API Gateway
-
-```typescript
-// Llamada desde otro microservicio o gateway
-const response = await fetch(
-  `http://localhost:3001/api/licencias/validate/${clienteId}/CLIENTES`
-)
-const { valida } = await response.json()
-```
-
-### Obtener módulos activos para frontend
-
-```typescript
-const response = await fetch(
-  `http://localhost:3001/api/licencias/active-modules/${clienteId}`
-)
-const { modulos } = await response.json()
-// modulos: [{ codigo: "AUTH", nombre: "Autenticación", ... }]
-```
-
-## 🧪 Testing
-
-```bash
-# Probar health check
-curl http://localhost:3001/api/health
-
-# Validar licencia
-curl http://localhost:3001/api/licencias/validate/1/AUTH
-
-# Obtener módulos activos
-curl http://localhost:3001/api/licencias/active-modules/1
-
-# Listar módulos disponibles
-curl http://localhost:3001/api/modulos
-```
-
-## 📝 Comandos Prisma Útiles
-
-```bash
-# Ver base de datos
-npm run prisma:studio
-
-# Crear nueva migración
-npx prisma migrate dev --name nombre_migracion
-
-# Reset de base de datos
-npx prisma migrate reset
-
-# Generar cliente después de cambios en schema
-npm run prisma:generate
-```
-
-## 🏗️ Arquitectura de Microservicios
-
-```
-Business-Security (Auth)  ←→  Business-Licensing (Este)
-         ↓                              ↓
-    Usuarios/Auth              Clientes/Módulos/Licencias
-         ↓                              ↓
-    Puerto 8000                    Puerto 3001
-    FastAPI/Python                Next.js/TypeScript
-```
-
-## 📄 Licencia
-
-Proyecto privado - Business ERP
+Proyecto interno — Business ERP.
