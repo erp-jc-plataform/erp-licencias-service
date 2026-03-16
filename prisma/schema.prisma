@@ -20,6 +20,13 @@ model Cliente {
   telefono     String?  @db.VarChar(50)
   direccion    String?  @db.VarChar(500)
   estadoId     Int      @default(1) @map("estado_id")
+  // --- Tema / White-label ---
+  appName      String?  @map("app_name") @db.VarChar(100)
+  logoUrl      String?  @map("logo_url") @db.VarChar(500)
+  primaryColor String   @default("#1565C0") @map("primary_color") @db.VarChar(20)
+  secondaryColor String @default("#42A5F5") @map("secondary_color") @db.VarChar(20)
+  appBarColor  String   @default("#1565C0") @map("app_bar_color") @db.VarChar(20)
+  // --- Fin tema ---
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
