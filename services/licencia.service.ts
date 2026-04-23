@@ -50,20 +50,18 @@ export class LicenciaService {
         ],
       },
       include: {
-        modulo: {
-          where: {
-            estadoId: 1,
-          },
-        },
+        modulo: true,
       },
     })
 
-    return licencias.map(lic => ({
-      codigo: lic.modulo.codigo,
-      nombre: lic.modulo.nombre,
-      icono: lic.modulo.icono,
-      vencimiento: lic.fechaVencimiento,
-    }))
+    return licencias
+      .filter(lic => lic.modulo.estadoId === 1)
+      .map(lic => ({
+        codigo: lic.modulo.codigo,
+        nombre: lic.modulo.nombre,
+        icono: lic.modulo.icono,
+        vencimiento: lic.fechaVencimiento,
+      }))
   }
 
   /**
